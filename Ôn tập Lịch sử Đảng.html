@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="build" content="2026-11-05.3">
+<meta name="build" content="2026-11-05.4">
 <title>Ôn tập Lịch sử Đảng</title>
 <style>
 :root{--bg:#f6f4ef;--card:#fff;--tx:#1f2328;--mu:#6b7280;--bd:#e4e0d6;--pr:#b3261e;--pr2:#fde8e6;--ok:#1a7f4b;--ok2:#e2f5ea;--no:#c62828;--no2:#fdeaea;--ac:#8a6d1d;--ac2:#fbf3d9;--on:#fff;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -86,11 +86,20 @@ table{width:100%;border-collapse:collapse;margin:8px 0;font-size:15px}td,th{bord
 @keyframes sp-up{to{opacity:1;transform:none}}
 @keyframes sp-fill{to{width:100%}}
 @media(prefers-reduced-motion:reduce){#splash *,#splash *::before,#splash *::after{animation-duration:.01s!important;animation-iteration-count:1!important}}
+
+.online{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--mu);padding:5px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--card,transparent);white-space:nowrap;animation:onl-in .4s ease both}
+.online[hidden]{display:none}
+.online i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:onl-ping 1.8s infinite}
+.online b{color:var(--tx);font-variant-numeric:tabular-nums;transition:transform .25s}
+.online b.bump{transform:scale(1.35)}
+@keyframes onl-ping{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes onl-in{from{opacity:0;transform:translateY(-6px)}}
+@media(prefers-reduced-motion:reduce){.online,.online i{animation:none}}
 </style>
 </head>
 <body>
 <div id="splash" aria-hidden="true"><div class="sp-logo"><div class="sp-flag"><i></i></div></div><div class="sp-t"><span style="animation-delay:300ms">Ô</span><span style="animation-delay:345ms">n</span><span style="animation-delay:390ms"> </span><span style="animation-delay:435ms">t</span><span style="animation-delay:480ms">ậ</span><span style="animation-delay:525ms">p</span><span style="animation-delay:570ms"> </span><span style="animation-delay:615ms">L</span><span style="animation-delay:660ms">ị</span><span style="animation-delay:705ms">c</span><span style="animation-delay:750ms">h</span><span style="animation-delay:795ms"> </span><span style="animation-delay:840ms">s</span><span style="animation-delay:885ms">ử</span><span style="animation-delay:930ms"> </span><span style="animation-delay:975ms">Đ</span><span style="animation-delay:1020ms">ả</span><span style="animation-delay:1065ms">n</span><span style="animation-delay:1110ms">g</span></div><div class="sp-s">Đang tải</div><div class="sp-bar"><i></i></div></div>
-<header><h1>🇻🇳 Ôn tập Lịch sử Đảng</h1><button class="btn s" data-a="theme" aria-label="Đổi giao diện sáng/tối">🌓</button></header>
+<header><h1>🇻🇳 Ôn tập Lịch sử Đảng</h1><span id="online" class="online" hidden title="Số người đang mở trang này"><i></i><b>1</b> đang ôn</span><button class="btn s" data-a="theme" aria-label="Đổi giao diện sáng/tối">🌓</button></header>
 <main id="app"></main>
 <nav id="nav"></nav>
 <script>
@@ -290,6 +299,31 @@ applyTheme();render();
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});
   addEventListener('online',check);
   window.__checkUpdate=check;
+})();
+
+
+/* ---------- ONLINE PRESENCE (Supabase Realtime) ----------
+   Điền 2 giá trị bên dưới (Project URL + anon public key). Để trống = tắt tính năng, không hiện gì. */
+const PRESENCE={url:'https://qkxmifohzmcvtgkvtybg.supabase.co',key:'sb_publishable_wotB5PqvLRulx2BMWTkZ1Q_r12x7lwt'};
+(()=>{
+  const el=document.getElementById('online');if(!el||!PRESENCE.url||!PRESENCE.key)return;
+  const num=el.querySelector('b');
+  const show=n=>{if(String(n)!==num.textContent){num.textContent=n;num.classList.add('bump');setTimeout(()=>num.classList.remove('bump'),250)}el.hidden=false};
+  const start=()=>{
+    let ch;
+    try{
+      const sb=window.supabase.createClient(PRESENCE.url,PRESENCE.key,{realtime:{params:{eventsPerSecond:5}}});
+      const id=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
+      ch=sb.channel('lsd-online',{config:{presence:{key:id}}});
+      ch.on('presence',{event:'sync'},()=>show(Math.max(1,Object.keys(ch.presenceState()).length)));
+      ch.subscribe(st=>{if(st==='SUBSCRIBED'&&!document.hidden)ch.track({at:Date.now()});
+        if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')el.hidden=true});
+      // chỉ tính người đang thật sự xem: ẩn tab thì bỏ đếm, quay lại thì đếm lại
+      document.addEventListener('visibilitychange',()=>{try{document.hidden?ch.untrack():ch.track({at:Date.now()})}catch(e){}});
+    }catch(e){el.hidden=true}
+  };
+  if(window.supabase)start();
+  else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';s.onload=start;s.onerror=()=>{el.hidden=true};document.head.appendChild(s)}
 })();
 
 /* ---------- SPLASH ---------- */
